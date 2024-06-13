@@ -1,37 +1,54 @@
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.perf4j.StopWatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class Perf4JAspect {
+
+    private static final Logger perfLogger = LoggerFactory.getLogger("perfLogger");
+
+    @Around("@annotation(org.perf4j.aop.Profiled)")
+    public Object profile(ProceedingJoinPoint pjp) throws Throwable {
+        StopWatch stopWatch = new StopWatch();
+        try {
+            return pjp.proceed();
+        } finally {
+            stopWatch.stop();
+            perfLogger.info("Method [{}] executed in [{}] ms", pjp.getSignature().toShortString(), stopWatch.getElapsedTime());
+        }
+    }
+}
+
+
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-
-    <!-- Console appender definition -->
     <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Perf4J appender definition -->
-    <appender name="perf4j" class="org.perf4j.logback.AsyncCoalescingStatisticsAppender">
-        <TimeSlice>60000</TimeSlice> <!-- Aggregate statistics every 60 seconds -->
-        <appender-ref ref="console"/>
+    <appender name="perfFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/perf.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/perf.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
     </appender>
+
+    <logger name="perfLogger" level="INFO" additivity="false">
+        <appender-ref ref="perfFile"/>
+    </logger>
 
     <root level="INFO">
         <appender-ref ref="console"/>
-        <appender-ref ref="perf4j"/>
     </root>
 </configuration>
-
-
-@Aspect
-@Component
-public class Perf4JAspect {
-
-    @Around("@annotation(org.perf4j.aop.Profiled)")
-    public Object profile(ProceedingJoinPoint pjp) throws Throwable {
-        StopWatch stopWatch = new LogbackStopWatch();
-        try {
-            return pjp.proceed();
-        } finally {
-            stopWatch.stop(pjp.getSignature().toShortString());
-        }
-    }
-}
