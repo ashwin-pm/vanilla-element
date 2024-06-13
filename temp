@@ -19,3 +19,19 @@
         <appender-ref ref="perf4j"/>
     </root>
 </configuration>
+
+
+@Aspect
+@Component
+public class Perf4JAspect {
+
+    @Around("@annotation(org.perf4j.aop.Profiled)")
+    public Object profile(ProceedingJoinPoint pjp) throws Throwable {
+        StopWatch stopWatch = new LogbackStopWatch();
+        try {
+            return pjp.proceed();
+        } finally {
+            stopWatch.stop(pjp.getSignature().toShortString());
+        }
+    }
+}
