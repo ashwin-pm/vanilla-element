@@ -1,17 +1,21 @@
-<dependency>
-    <groupId>ch.qos.logback</groupId>
-    <artifactId>logback-classic</artifactId>
-</dependency>
-
-
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+
+    <!-- Console appender definition -->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Perf4J appender definition -->
     <appender name="perf4j" class="org.perf4j.logback.AsyncCoalescingStatisticsAppender">
-        <param name="TimeSlice">60000</param> <!-- Aggregate statistics every 60 seconds -->
-        <appender-ref ref="console" />
+        <TimeSlice>60000</TimeSlice> <!-- Aggregate statistics every 60 seconds -->
+        <appender-ref ref="console"/>
     </appender>
 
     <root level="INFO">
-        <appender-ref ref="perf4j" />
+        <appender-ref ref="console"/>
+        <appender-ref ref="perf4j"/>
     </root>
 </configuration>
