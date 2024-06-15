@@ -73,3 +73,124 @@ public class Perf4JAspect {
         <appender-ref ref="console"/>
     </root>
 </configuration>
+
+
+
+-----------------------------
+
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class PlaceholderResolver {
+
+    public static void main(String[] args) {
+        // Example usage
+        MyClass myClassInstance = new MyClass();
+        AnotherClass anotherInstance = new AnotherClass();
+        anotherInstance.level1.level2.level3 = "DeepResolvedValue";
+
+        // Create lists and maps as arguments
+        List<String> stringList = List.of("Element1", "Element2", "Element3");
+        Map<String, String> stringMap = Map.of("Key1", "Value1", "Key2", "Value2");
+
+        // Example text with multiple placeholders, including nested field paths and method calls
+        String textWithPlaceholders = "List size is {0}.size() and Nested field size is {1}.foo.bar.size()";
+
+        try {
+            String resolvedText = resolvePlaceholders(new Object[]{stringList, myClassInstance}, textWithPlaceholders);
+            System.out.println("Resolved Text: " + resolvedText);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Resolves placeholders in the given text using the provided parameters.
+     *
+     * @param params The array of parameters to substitute in the text.
+     * @param text   The text containing placeholders.
+     * @return The text with placeholders resolved to actual values.
+     * @throws Exception If there is an error resolving the placeholders.
+     */
+    public static String resolvePlaceholders(Object[] params, String text) throws Exception {
+        // Pattern to match placeholders like {0}.size() or {1}.foo.bar.size()
+        Pattern pattern = Pattern.compile("\\{(\\d+)\\}\\.([\\w\\(\\)\\.]+)");
+        Matcher matcher = pattern.matcher(text);
+        StringBuffer result = new StringBuffer();
+
+        // Find and process each placeholder
+        while (matcher.find()) {
+            int index = Integer.parseInt(matcher.group(1));
+            String fieldPath = matcher.group(2);
+
+            // Resolve the field value or method result
+            String resolvedValue = getFieldValueOrInvokeMethod(params[index], fieldPath);
+            matcher.appendReplacement(result, resolvedValue);
+        }
+        matcher.appendTail(result);
+
+        return result.toString();
+    }
+
+    /**
+     * Gets the value of a field or the result of a method invocation from an object using reflection.
+     *
+     * @param obj       The object to get the field value or method result from.
+     * @param fieldPath The path to the field or method (e.g., "foo.bar.size()").
+     * @return The string representation of the field value or method result.
+     * @throws Exception If there is an error accessing the field or invoking the method.
+     */
+    public static String getFieldValueOrInvokeMethod(Object obj, String fieldPath) throws Exception {
+        String[] fields = fieldPath.split("\\.");
+        Object currentObject = obj;
+
+        for (String field : fields) {
+            if (field.endsWith("()")) {
+                // It's a method call
+                String methodName = field.substring(0, field.length() - 2);
+
+                // Special handling for size method on collections
+                if (methodName.equals("size")) {
+                    if (currentObject instanceof List) {
+                        return String.valueOf(((List<?>) currentObject).size());
+                    } else if (currentObject instanceof Map) {
+                        return String.valueOf(((Map<?, ?>) currentObject).size());
+                    } else {
+                        throw new IllegalArgumentException("Cannot call size() on non-List or non-Map object.");
+                    }
+                }
+
+                Method method = currentObject.getClass().getMethod(methodName);
+                currentObject = method.invoke(currentObject);
+            } else {
+                // It's a field access
+                Field currentField = currentObject.getClass().getDeclaredField(field);
+                currentField.setAccessible(true);
+                currentObject = currentField.get(currentObject);
+            }
+        }
+
+        return currentObject.toString();
+    }
+}
+
+class MyClass {
+    public List<String> foo = List.of("bar", "baz", "qux");
+}
+
+class AnotherClass {
+    public Level1 level1 = new Level1();
+}
+
+class Level1 {
+    public Level2 level2 = new Level2();
+}
+
+class Level2 {
+    public List<String> bar = List.of("Value1", "Value2", "Value3");
+}
