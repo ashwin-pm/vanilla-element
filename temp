@@ -78,7 +78,6 @@ public class Perf4JAspect {
 
 -----------------------------
 
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -99,10 +98,10 @@ public class PlaceholderResolver {
         Map<String, String> stringMap = Map.of("Key1", "Value1", "Key2", "Value2");
 
         // Example text with multiple placeholders, including nested field paths and method calls
-        String textWithPlaceholders = "List size is {0}.size() and Nested field size is {1}.foo.bar.size()";
+        String textWithPlaceholders = "{0}.size() and Nested field value is {1}.foo.bar.size() and Simple value is {1}";
 
         try {
-            String resolvedText = resolvePlaceholders(new Object[]{stringList, myClassInstance}, textWithPlaceholders);
+            String resolvedText = resolvePlaceholders(new Object[]{stringList, anotherInstance}, textWithPlaceholders);
             System.out.println("Resolved Text: " + resolvedText);
         } catch (Exception e) {
             e.printStackTrace();
@@ -119,7 +118,7 @@ public class PlaceholderResolver {
      */
     public static String resolvePlaceholders(Object[] params, String text) throws Exception {
         // Pattern to match placeholders like {0}.size() or {1}.foo.bar.size()
-        Pattern pattern = Pattern.compile("\\{(\\d+)\\}\\.([\\w\\(\\)\\.]+)");
+        Pattern pattern = Pattern.compile("\\{(\\d+)\\}(\\.([\\w\\(\\)\\.]+))?");
         Matcher matcher = pattern.matcher(text);
         StringBuffer result = new StringBuffer();
 
@@ -128,9 +127,15 @@ public class PlaceholderResolver {
             int index = Integer.parseInt(matcher.group(1));
             String fieldPath = matcher.group(2);
 
-            // Resolve the field value or method result
-            String resolvedValue = getFieldValueOrInvokeMethod(params[index], fieldPath);
-            matcher.appendReplacement(result, resolvedValue);
+            if (fieldPath != null) {
+                // Resolve the field value or method result
+                String resolvedValue = resolveFieldOrMethod(params[index], fieldPath);
+                matcher.appendReplacement(result, resolvedValue);
+            } else {
+                // Handle simple object reference like {1}
+                String resolvedValue = params[index].toString();
+                matcher.appendReplacement(result, resolvedValue);
+            }
         }
         matcher.appendTail(result);
 
@@ -138,14 +143,14 @@ public class PlaceholderResolver {
     }
 
     /**
-     * Gets the value of a field or the result of a method invocation from an object using reflection.
+     * Resolves a field path or method call on an object using reflection.
      *
-     * @param obj       The object to get the field value or method result from.
-     * @param fieldPath The path to the field or method (e.g., "foo.bar.size()").
-     * @return The string representation of the field value or method result.
-     * @throws Exception If there is an error accessing the field or invoking the method.
+     * @param obj       The object to resolve the field path or method call on.
+     * @param fieldPath The field path or method call (e.g., "foo.bar.size()").
+     * @return The string representation of the resolved value.
+     * @throws Exception If there is an error resolving the field or invoking the method.
      */
-    public static String getFieldValueOrInvokeMethod(Object obj, String fieldPath) throws Exception {
+    public static String resolveFieldOrMethod(Object obj, String fieldPath) throws Exception {
         String[] fields = fieldPath.split("\\.");
         Object currentObject = obj;
 
@@ -194,3 +199,4 @@ class Level1 {
 class Level2 {
     public List<String> bar = List.of("Value1", "Value2", "Value3");
 }
+
