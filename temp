@@ -1,90 +1,3 @@
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.Around;
-import org.aspectj.lang.annotation.Aspect;
-import org.perf4j.StopWatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
-@Aspect
-@Component
-public class Perf4JAspect {
-
-    private static final Logger perfLogger = LoggerFactory.getLogger("perfLogger");
-
-    @Around("@annotation(org.perf4j.aop.Profiled)")
-    public Object profile(ProceedingJoinPoint pjp) throws Throwable {
-        StopWatch stopWatch = new StopWatch();
-        try {
-            return pjp.proceed();
-        } finally {
-            stopWatch.stop();
-            perfLogger.info("Method [{}] executed in [{}] ms", pjp.getSignature().toShortString(), stopWatch.getElapsedTime());
-        }
-    }
-}
-
-
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <appender name="perfFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/perf.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/perf.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>30</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <logger name="perfLogger" level="INFO" additivity="false">
-        <appender-ref ref="perfFile"/>
-    </logger>
-
-    <root level="INFO">
-        <appender-ref ref="console"/>
-    </root>
-</configuration>
-
-
-
-
-
-
---------
-
-
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <root level="INFO">
-        <appender-ref ref="console"/>
-    </root>
-</configuration>
-
-
-
------------------------------
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 public class PlaceholderResolver {
 
     public static void main(String[] args) {
@@ -158,45 +71,41 @@ public class PlaceholderResolver {
             if (field.endsWith("()")) {
                 // It's a method call
                 String methodName = field.substring(0, field.length() - 2);
-
-                // Special handling for size method on collections
-                if (methodName.equals("size")) {
-                    if (currentObject instanceof List) {
-                        return String.valueOf(((List<?>) currentObject).size());
-                    } else if (currentObject instanceof Map) {
-                        return String.valueOf(((Map<?, ?>) currentObject).size());
-                    } else {
-                        throw new IllegalArgumentException("Cannot call size() on non-List or non-Map object.");
-                    }
-                }
-
-                Method method = currentObject.getClass().getMethod(methodName);
-                currentObject = method.invoke(currentObject);
+                currentObject = invokeMethod(currentObject, methodName);
             } else {
                 // It's a field access
-                Field currentField = currentObject.getClass().getDeclaredField(field);
-                currentField.setAccessible(true);
-                currentObject = currentField.get(currentObject);
+                currentObject = getFieldValue(currentObject, field);
             }
         }
 
         return currentObject.toString();
     }
-}
 
-class MyClass {
-    public List<String> foo = List.of("bar", "baz", "qux");
-}
+    /**
+     * Gets the string representation of a field value from an object using reflection.
+     *
+     * @param obj   The object to get the field value from.
+     * @param field The field name.
+     * @return The string representation of the field value.
+     * @throws Exception If there is an error accessing the field.
+     */
+    public static String getFieldValue(Object obj, String field) throws Exception {
+        Field declaredField = obj.getClass().getDeclaredField(field);
+        declaredField.setAccessible(true);
+        Object value = declaredField.get(obj);
+        return String.valueOf(value);
+    }
 
-class AnotherClass {
-    public Level1 level1 = new Level1();
+    /**
+     * Invokes a method on an object using reflection.
+     *
+     * @param obj        The object on which to invoke the method.
+     * @param methodName The name of the method to invoke.
+     * @return The string representation of the method invocation result.
+     * @throws Exception If there is an error invoking the method.
+     */
+    public static Object invokeMethod(Object obj, String methodName) throws Exception {
+        Method method = obj.getClass().getMethod(methodName);
+        return method.invoke(obj);
+    }
 }
-
-class Level1 {
-    public Level2 level2 = new Level2();
-}
-
-class Level2 {
-    public List<String> bar = List.of("Value1", "Value2", "Value3");
-}
-
