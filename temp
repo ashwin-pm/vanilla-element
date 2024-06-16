@@ -1,4 +1,29 @@
 /**
+ * A utility class for resolving placeholders in text using JEXL expressions.
+ * 
+ * This class provides a method to replace placeholders in a text with values
+ * derived from provided parameters. The placeholders support nested fields 
+ * and method calls.
+ *
+ * Example usage:
+ * <pre>
+ *     MyClass myClassInstance = new MyClass();
+ *     AnotherClass anotherClassInstance = new AnotherClass();
+ *     String textWithPlaceholders = "Field value: {0}.foo and List size: {1}.myObject.fooList.size()";
+ *     String resolvedText = JexlPlaceholderResolver.resolvePlaceholders(new Object[]{myClassInstance, anotherClassInstance}, textWithPlaceholders);
+ *     System.out.println("Resolved Text: " + resolvedText);
+ * </pre>
+ * 
+ * @see MyClass
+ * @see AnotherClass
+ * @see org.apache.commons.jexl3.JexlEngine
+ * @see org.apache.commons.jexl3.JexlContext
+ * @see org.apache.commons.jexl3.JexlExpression
+ * 
+ * @author
+ */
+
+/**
  * Resolves placeholders in the given text using the provided parameters.
      *
      * The method supports the following types of placeholders:
