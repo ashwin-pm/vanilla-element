@@ -1,4 +1,19 @@
 /**
+ * Resolves placeholders in the given text using the provided parameters.
+     *
+     * The method supports the following types of placeholders:
+     * - `{n}`: Direct access to the nth parameter (0-based index).
+     * - `{n}.field`: Access to a public field of the nth parameter.
+     * - `{n}.method()`: Invocation of a public method with no arguments of the nth parameter.
+     * - `{n}.field.method()`: Access to a field followed by a method invocation.
+     * - `{n}.field1.field2`: Nested field access.
+     * - `{n}.field1.field2.method()`: Nested field access followed by a method invocation.
+     * 
+     * Example messages:
+     * - "Direct field access: {0}.foo"
+     * - "Nested field access: {1}.myObject.foo"
+     * - "Method call on field: {0}.fooList.size()"
+     * - "Direct method call: {1}.myObject.fooList.size()"
      * Resolves placeholders in the given text using the provided parameters.
      *
      * @param params The array of parameters to substitute in the text.
