@@ -145,3 +145,16 @@
             throw new IllegalArgumentException("Object is not a List or Map");
         }
     }
+
+
+
+dependencies {
+    implementation 'org.apache.camel.springboot:camel-spring-boot-starter:3.11.0' // Use the appropriate version
+    implementation 'org.apache.camel.springboot:camel-opentelemetry-starter:3.11.0' // Use the appropriate version
+    implementation 'io.opentelemetry:opentelemetry-api:1.5.0' // Use the appropriate version
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.cloud:spring-cloud-starter-sleuth:3.0.4' // Use the appropriate version
+    implementation 'org.springframework.cloud:spring-cloud-sleuth-otel-autoconfigure:1.0.0' // Use the appropriate version
+}
+
