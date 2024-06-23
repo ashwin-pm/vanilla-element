@@ -10,7 +10,7 @@
         </default>
       </input>
       
-      <!-- New dropdown for sourcetype filter -->
+      <!-- Dropdown for sourcetype filter -->
       <input type="dropdown" token="sourcetype_filter">
         <label>Select Source Type:</label>
         <choice value="*">All Source Types</choice>
@@ -31,15 +31,40 @@
             index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
             earliest=$time_range.earliest$ latest=$time_range.latest$ 
             | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | stats avg(execution_time) as avg_time by tag
+            | stats avg(execution_time) as avg_time, min(execution_time) as min_time, max(execution_time) as max_time by tag
             | sort -avg_time
             ]]>
           </query>
         </search>
         <option name="charting.chart">column</option>
         <option name="charting.series">multi</option>
-        <option name="charting.axisTitleY">Average Execution Time (ms)</option>
+        <option name="charting.axisTitleY">Execution Time (ms)</option>
+        <drilldown>
+          <set token="selected_tag">$row.tag$</set>
+        </drilldown>
       </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Detailed Logs for Selected Method</title>
+      <table>
+        <search>
+          <query>
+            <![CDATA[
+            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
+            tag="$selected_tag$" earliest=$time_range.earliest$ latest=$time_range.latest$ 
+            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
+            | table _time execution_time tag message
+            ]]>
+          </query>
+        </search>
+        <depends>
+          <condition token="selected_tag">*<!-- Ensures this panel shows only if a tag is selected --></condition>
+        </depends>
+        <earliest>$time_range.earliest$</earliest>
+        <latest>$time_range.latest$</latest>
+      </table>
     </panel>
   </row>
 </dashboard>
