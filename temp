@@ -158,3 +158,50 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-sleuth-otel-autoconfigure:1.0.0' // Use the appropriate version
 }
 
+
+
+
+<dashboard>
+  <label>Method Execution Time Dashboard</label>
+  <description>Dashboard to monitor method execution times and drill down to detailed logs.</description>
+  <row>
+    <panel>
+      <input type="time" token="time_range">
+        <default>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Execution Time Statistics by Method</title>
+      <chart>
+        <search>
+          <query>index=<your_index> sourcetype=<your_sourcetype> earliest=$time_range.earliest$ latest=$time_range.latest$ 
+          | rex field=_raw "start\[(?<start>\d+)\] time\[(?<execution_time>\d+)\] tag\[(?<tag>[^\]]+)\] message\[(?<message>[^\]]+)\]"
+          | stats min(execution_time) as min_time max(execution_time) as max_time avg(execution_time) as avg_time by tag</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.series">multi</option>
+      </chart>
+      <drilldown>
+        <set token="selected_tag">$row.tag$</set>
+      </drilldown>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Detailed Logs for Selected Method</title>
+      <table>
+        <search>
+          <query>index=<your_index> sourcetype=<your_sourcetype> earliest=$time_range.earliest$ latest=$time_range.latest$ tag=$selected_tag$ 
+          | rex field=_raw "start\[(?<start>\d+)\] time\[(?<execution_time>\d+)\] tag\[(?<tag>[^\]]+)\] message\[(?<message>[^\]]+)\]"
+          | table _time execution_time tag message</query>
+        </search>
+      </table>
+    </panel>
+  </row>
+</dashboard>
+
