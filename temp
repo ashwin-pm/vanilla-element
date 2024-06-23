@@ -31,32 +31,71 @@
             index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
             earliest=$time_range.earliest$ latest=$time_range.latest$ 
             | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | stats avg(execution_time) as avg_time, min(execution_time) as min_time, max(execution_time) as max_time by tag
+            | stats avg(execution_time) as avg_time by tag
             | sort -avg_time
             ]]>
           </query>
         </search>
         <option name="charting.chart">column</option>
         <option name="charting.series">multi</option>
-        <option name="charting.axisTitleY">Execution Time (ms)</option>
+        <option name="charting.axisTitleY">Average Execution Time (ms)</option>
         <drilldown>
           <set token="selected_tag">$row.tag$</set>
         </drilldown>
       </chart>
     </panel>
   </row>
-  <!-- Debugging Panel for selected_tag Token -->
   <row depends="$selected_tag$">
     <panel>
-      <title>Debug: Selected Tag</title>
+      <title>Execution Time Timeline for Selected Method</title>
+      <chart>
+        <search>
+          <query>
+            <![CDATA[
+            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
+            earliest=$time_range.earliest$ latest=$time_range.latest$ 
+            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
+            | search tag="$selected_tag$"
+            | timechart span=1h avg(execution_time) as avg_time
+            ]]>
+          </query>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleY">Average Execution Time (ms)</option>
+      </chart>
+    </panel>
+  </row>
+  <row depends="$selected_tag$">
+    <panel>
+      <title>Execution Time Statistics for Selected Method</title>
       <table>
         <search>
           <query>
-            | makeresults
-            | eval selected_tag="$selected_tag$"
-            | table selected_tag
+            <![CDATA[
+            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
+            earliest=$time_range.earliest$ latest=$time_range.latest$ 
+            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
+            | search tag="$selected_tag$"
+            | stats avg(execution_time) as avg_time, min(execution_time) as min_time, max(execution_time) as max_time by tag
+            | eval avg_color=if(avg_time > 20000, "red", if(avg_time > 10000, "orange", "green"))
+            | eval min_color=if(min_time > 20000, "red", if(min_time > 10000, "orange", "green"))
+            | eval max_color=if(max_time > 20000, "red", if(max_time > 10000, "orange", "green"))
+            | table tag, avg_time, min_time, max_time, avg_color, min_color, max_color
+            ]]>
           </query>
         </search>
+        <option name="drilldown">none</option>
+        <format>
+          <field name="avg_time">
+            <eval> "<div style='color:" . avg_color . "'>" . avg_time . "</div>" </eval>
+          </field>
+          <field name="min_time">
+            <eval> "<div style='color:" . min_color . "'>" . min_time . "</div>" </eval>
+          </field>
+          <field name="max_time">
+            <eval> "<div style='color:" . max_color . "'>" . max_time . "</div>" </eval>
+          </field>
+        </format>
       </table>
     </panel>
   </row>
@@ -81,3 +120,49 @@
     </panel>
   </row>
 </dashboard>
+
+
+
+
+
+
+
+
+<row depends="$selected_tag$">
+  <panel>
+    <title>Execution Time Statistics for Selected Method</title>
+    <table>
+      <search>
+        <query>
+          <![CDATA[
+          index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
+          earliest=$time_range.earliest$ latest=$time_range.latest$ 
+          | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
+          | search tag="$selected_tag$"
+          | stats avg(execution_time) as avg_time, min(execution_time) as min_time, max(execution_time) as max_time by tag
+          | eval diff_avg_min=avg_time - min_time
+          | eval diff_max_avg=max_time - avg_time
+          | eval diff_max_min=max_time - min_time
+          | eval color_avg=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "red", "inherit")
+          | eval color_min=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "red", "inherit")
+          | eval color_max=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "red", "inherit")
+          | table tag, avg_time, min_time, max_time, color_avg, color_min, color_max
+          ]]>
+        </query>
+      </search>
+      <option name="drilldown">none</option>
+      <format>
+        <field name="avg_time">
+          <eval> "<div style='color:" . color_avg . "'>" . avg_time . "</div>" </eval>
+        </field>
+        <field name="min_time">
+          <eval> "<div style='color:" . color_min . "'>" . min_time . "</div>" </eval>
+        </field>
+        <field name="max_time">
+          <eval> "<div style='color:" . color_max . "'>" . max_time . "</div>" </eval>
+        </field>
+      </format>
+    </table>
+  </panel>
+</row>
+
