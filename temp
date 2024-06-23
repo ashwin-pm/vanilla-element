@@ -127,7 +127,6 @@
 
 
 
-
 <row depends="$selected_tag$">
   <panel>
     <title>Execution Time Statistics for Selected Method</title>
@@ -143,26 +142,23 @@
           | eval diff_avg_min=avg_time - min_time
           | eval diff_max_avg=max_time - avg_time
           | eval diff_max_min=max_time - min_time
-          | eval color_avg=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "red", "inherit")
-          | eval color_min=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "red", "inherit")
-          | eval color_max=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "red", "inherit")
-          | table tag, avg_time, min_time, max_time, color_avg, color_min, color_max
+          | eval color_avg=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "<div style='color:red'>" . avg_time . "</div>", avg_time)
+          | eval color_min=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "<div style='color:red'>" . min_time . "</div>", min_time)
+          | eval color_max=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "<div style='color:red'>" . max_time . "</div>", max_time)
+          | table tag, color_avg, color_min, color_max
           ]]>
         </query>
       </search>
       <option name="drilldown">none</option>
       <format>
-        <field name="avg_time">
-          <eval> "<div style='color:" . color_avg . "'>" . avg_time . "</div>" </eval>
-        </field>
-        <field name="min_time">
-          <eval> "<div style='color:" . color_min . "'>" . min_time . "</div>" </eval>
-        </field>
-        <field name="max_time">
-          <eval> "<div style='color:" . color_max . "'>" . max_time . "</div>" </eval>
-        </field>
+        <field name="color_avg">HTML</field>
+        <field name="color_min">HTML</field>
+        <field name="color_max">HTML</field>
       </format>
     </table>
+  </panel>
+</row>
+
   </panel>
 </row>
 
