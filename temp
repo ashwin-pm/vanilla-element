@@ -17,9 +17,11 @@
       <chart>
         <search>
           <query>
-            index=&lt;your_index&gt; sourcetype=&lt;your_sourcetype&gt; earliest=$time_range.earliest$ latest=$time_range.latest$ 
-            | rex field=_raw "start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^\]]+)\] message\[(?P<message>[^\]]+)\]"
+            <![CDATA[
+            index=<your_index> sourcetype=<your_sourcetype> earliest=$time_range.earliest$ latest=$time_range.latest$ 
+            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
             | stats min(execution_time) as min_time max(execution_time) as max_time avg(execution_time) as avg_time by tag
+            ]]>
           </query>
         </search>
         <option name="charting.chart">column</option>
@@ -36,9 +38,11 @@
       <table>
         <search>
           <query>
-            index=&lt;your_index&gt; sourcetype=&lt;your_sourcetype&gt; earliest=$time_range.earliest$ latest=$time_range.latest$ tag=$selected_tag$ 
-            | rex field=_raw "start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^\]]+)\] message\[(?P<message>[^\]]+)\]"
+            <![CDATA[
+            index=<your_index> sourcetype=<your_sourcetype> earliest=$time_range.earliest$ latest=$time_range.latest$ tag=$selected_tag$ 
+            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
             | table _time execution_time tag message
+            ]]>
           </query>
         </search>
       </table>
