@@ -159,8 +159,6 @@ dependencies {
 }
 
 
-
-
 <dashboard>
   <label>Method Execution Time Dashboard</label>
   <description>Dashboard to monitor method execution times and drill down to detailed logs.</description>
