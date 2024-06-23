@@ -9,43 +9,37 @@
           <latest>now</latest>
         </default>
       </input>
+      
+      <!-- New dropdown for sourcetype filter -->
+      <input type="dropdown" token="sourcetype_filter">
+        <label>Select Source Type:</label>
+        <choice value="*">All Source Types</choice>
+        <choice value="a">Source Type A</choice>
+        <choice value="b">Source Type B</choice>
+        <choice value="c">Source Type C</choice>
+        <default>*</default> <!-- Default selection -->
+      </input>
     </panel>
   </row>
   <row>
     <panel>
-      <title>Execution Time Statistics by Method</title>
+      <title>Average Execution Time by Method</title>
       <chart>
         <search>
           <query>
             <![CDATA[
-            index=<your_index> sourcetype=<your_sourcetype> earliest=$time_range.earliest$ latest=$time_range.latest$ 
+            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
+            earliest=$time_range.earliest$ latest=$time_range.latest$ 
             | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | stats min(execution_time) as min_time max(execution_time) as max_time avg(execution_time) as avg_time by tag
+            | stats avg(execution_time) as avg_time by tag
+            | sort -avg_time
             ]]>
           </query>
         </search>
         <option name="charting.chart">column</option>
         <option name="charting.series">multi</option>
+        <option name="charting.axisTitleY">Average Execution Time (ms)</option>
       </chart>
-      <drilldown>
-        <set token="selected_tag">$row.tag$</set>
-      </drilldown>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>Detailed Logs for Selected Method</title>
-      <table>
-        <search>
-          <query>
-            <![CDATA[
-            index=<your_index> sourcetype=<your_sourcetype> earliest=$time_range.earliest$ latest=$time_range.latest$ tag=$selected_tag$ 
-            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | table _time execution_time tag message
-            ]]>
-          </query>
-        </search>
-      </table>
     </panel>
   </row>
 </dashboard>
