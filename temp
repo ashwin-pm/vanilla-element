@@ -57,6 +57,12 @@
             | table selected_tag
           </query>
         </search>
+        <depends>
+          <condition token="selected_tag">*</condition>
+        </depends>
+        <reject>
+          <condition token="selected_tag">null</condition>
+        </reject>
       </table>
     </panel>
   </row>
@@ -76,8 +82,11 @@
           </query>
         </search>
         <depends>
-          <condition token="selected_tag">*<!-- Ensures this panel shows only if a tag is selected --></condition>
+          <condition token="selected_tag">*</condition>
         </depends>
+        <reject>
+          <condition token="selected_tag">null</condition>
+        </reject>
         <earliest>$time_range.earliest$</earliest>
         <latest>$time_range.latest$</latest>
       </table>
