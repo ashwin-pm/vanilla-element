@@ -45,6 +45,21 @@
       </chart>
     </panel>
   </row>
+  <!-- Debugging Panel for selected_tag Token -->
+  <row>
+    <panel>
+      <title>Debug: Selected Tag</title>
+      <table>
+        <search>
+          <query>
+            | makeresults
+            | eval selected_tag="$selected_tag$"
+            | table selected_tag
+          </query>
+        </search>
+      </table>
+    </panel>
+  </row>
   <row>
     <panel>
       <title>Detailed Logs for Selected Method</title>
@@ -53,8 +68,9 @@
           <query>
             <![CDATA[
             index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
-            tag="$selected_tag$" earliest=$time_range.earliest$ latest=$time_range.latest$ 
+            earliest=$time_range.earliest$ latest=$time_range.latest$ 
             | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
+            | search tag="$selected_tag$"
             | table _time execution_time tag message
             ]]>
           </query>
