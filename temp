@@ -36,4 +36,12 @@
       <table>
         <search>
           <query>
-            index=&lt;your_index&gt; sourcetype=&lt;your_sourcetype&gt; earliest=$time_range.earliest$
+            index=&lt;your_index&gt; sourcetype=&lt;your_sourcetype&gt; earliest=$time_range.earliest$ latest=$time_range.latest$ tag=$selected_tag$ 
+            | rex field=_raw "start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^\]]+)\] message\[(?P<message>[^\]]+)\]"
+            | table _time execution_time tag message
+          </query>
+        </search>
+      </table>
+    </panel>
+  </row>
+</dashboard>
