@@ -162,3 +162,10 @@
   </panel>
 </row>
 
+
+
+index=<your_index> sourcetype="foo.$sourcetype_filter$.bin" earliest=$time_range.earliest$ latest=$time_range.latest$
+| rex field=_raw "(?P<time_stamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[(?P<trace_id>[^,]+),[^\\]]+\\] start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\](?: message\\[(?P<message>[^\\]]*)\\])?"
+| fillnull value="N/A" message
+| table time_stamp, trace_id, execution_time, tag, message
+
