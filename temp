@@ -164,6 +164,32 @@
 
 
 
+
+
+<row>
+    <panel>
+      <title>Total Time Spent by Trace ID</title>
+      <table>
+        <search>
+          <query>
+            <![CDATA[
+            (index=your_index sourcetype=hello) OR (index=your_index sourcetype=world) OR (index=your_index sourcetype=order) OR (index=your_index sourcetype=ball) earliest=$time_range.earliest$ latest=$time_range.latest$
+            | rex field=_raw "(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<trace_id>[^,]+),[^]]+] start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^]]+)\](?: message\[(?P<message>[^]]*)\])?"
+            | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
+            | stats earliest(_time) as first_time, latest(_time) as last_time by trace_id
+            | eval total_time_spent = last_time - first_time
+            | eval total_time_spent = round(total_time_spent, 0)
+            | table trace_id, first_time, last_time, total_time_spent
+            ]]>
+          </query>
+        </search>
+        <option name="drilldown">row</option>
+      </table>
+    </panel>
+  </row>
+
+
+
 index=<your_index> sourcetype="foo.$sourcetype_filter$.bin" earliest=$time_range.earliest$ latest=$time_range.latest$
 | rex field=_raw "(?P<time_stamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[(?P<trace_id>[^,]+),[^\\]]+\\] start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\](?: message\\[(?P<message>[^\\]]*)\\])?"
 | fillnull value="N/A" message
