@@ -208,6 +208,11 @@
 
 
 
+| rex field=_raw "^(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[[^\]]+\] [^\[]+\[(?P<trace_id>[^\s,]+), ?(?P<span_id>[^\s,]+)\]"
+            | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
+            
+
+
 index=<your_index> sourcetype="foo.$sourcetype_filter$.bin" earliest=$time_range.earliest$ latest=$time_range.latest$
 | rex field=_raw "(?P<time_stamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[(?P<trace_id>[^,]+),[^\\]]+\\] start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\](?: message\\[(?P<message>[^\\]]*)\\])?"
 | fillnull value="N/A" message
