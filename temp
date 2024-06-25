@@ -188,6 +188,24 @@
     </panel>
   </row>
 
+<query>
+            <![CDATA[
+            index=your_index (sourcetype=hello OR sourcetype=world OR sourcetype=order OR sourcetype=ball) earliest=$time_range.earliest$ latest=$time_range.latest$
+            | rex field=_raw "(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<trace_id>[^,]+),[^]]+] start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^]]+)\](?: message\[(?P<message>[^]]*)\])?"
+            | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
+            | stats earliest(_time) as first_time, latest(_time) as last_time by trace_id sourcetype
+            | eval time_spent = last_time - first_time
+            | eval time_spent = round(time_spent, 0)
+            | eval component = case(
+                sourcetype=="hello", "Component A",
+                sourcetype=="world", "Component B",
+                sourcetype=="order", "Component C",
+                sourcetype=="ball", "Component D",
+                1==1, sourcetype)  // Default case to keep original value if not matched
+            | table trace_id, component, first_time, last_time, time_spent
+            ]]>
+          </query>
+
 
 
 index=<your_index> sourcetype="foo.$sourcetype_filter$.bin" earliest=$time_range.earliest$ latest=$time_range.latest$
