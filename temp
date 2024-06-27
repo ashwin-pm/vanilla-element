@@ -212,9 +212,69 @@
             | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
             
 
+<dashboard>
+  <label>Trace ID Analysis Dashboard</label>
+  <description>Dashboard to analyze logs by trace ID and visualize first occurrences in each component.</description>
 
-index=<your_index> sourcetype="foo.$sourcetype_filter$.bin" earliest=$time_range.earliest$ latest=$time_range.latest$
-| rex field=_raw "(?P<time_stamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\[(?P<trace_id>[^,]+),[^\\]]+\\] start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\](?: message\\[(?P<message>[^\\]]*)\\])?"
-| fillnull value="N/A" message
-| table time_stamp, trace_id, execution_time, tag, message
+  <!-- Date range picker -->
+  <row>
+    <panel>
+      <title>Select Time Range</title>
+      <input type="time" token="time_range">
+        <default>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+    </panel>
+  </row>
+
+  <!-- Dropdown for Trace IDs -->
+  <row>
+    <panel>
+      <title>Select Trace ID</title>
+      <input type="dropdown" token="selected_trace_id">
+        <label>Trace ID</label>
+        <dynamicOptions>true</dynamicOptions>
+        <search>
+          <query>
+            <![CDATA[
+            index=* (sourcetype=foo OR sourcetype=bar OR sourcetype=bin OR sourcetype=hello) earliest=$time_range.earliest$ latest=$time_range.latest$
+            | rex field=_raw "\[(?P<trace_id>[^\s,]+), ?(?P<span_id>[^\s,]+)\]"
+            | stats count by trace_id
+            | fields - count
+            ]]>
+          </query>
+        </search>
+      </input>
+    </panel>
+  </row>
+
+  <!-- Chart for First Occurrence Times -->
+  <row>
+    <panel>
+      <title>First Occurrence Times by Component</title>
+      <chart>
+        <search>
+          <query>
+            <![CDATA[
+            index=* (sourcetype=foo OR sourcetype=bar OR sourcetype=bin OR sourcetype=hello) earliest=$time_range.earliest$ latest=$time_range.latest$ trace_id=$selected_trace_id$
+            | rex field=_raw "(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[.+?\] .+ \[(?P<trace_id>[^\s,]+), ?(?P<span_id>[^\s,]+)\]"
+            | stats earliest(time_stamp) as first_occurrence by sourcetype
+            | eval component=case(
+                sourcetype=="foo", "Component Foo",
+                sourcetype=="bar", "Component Bar",
+                sourcetype=="bin", "Component Bin",
+                sourcetype=="hello", "Component Hello",
+                true(), "Other"
+              )
+            | table component, first_occurrence
+            ]]>
+          </query>
+        </search>
+      </chart>
+    </panel>
+  </row>
+</dashboard>
+
 
