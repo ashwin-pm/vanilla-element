@@ -1,280 +1,53 @@
-<dashboard>
-  <label>Method Execution Time Dashboard</label>
-  <description>Dashboard to monitor method execution times and drill down to detailed logs.</description>
-  <row>
-    <panel>
-      <input type="time" token="time_range">
-        <default>
-          <earliest>-24h@h</earliest>
-          <latest>now</latest>
-        </default>
-      </input>
-      
-      <!-- Dropdown for sourcetype filter -->
-      <input type="dropdown" token="sourcetype_filter">
-        <label>Select Source Type:</label>
-        <choice value="*">All Source Types</choice>
-        <choice value="a">Source Type A</choice>
-        <choice value="b">Source Type B</choice>
-        <choice value="c">Source Type C</choice>
-        <default>*</default> <!-- Default selection -->
-      </input>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <title>Average Execution Time by Method</title>
-      <chart>
-        <search>
-          <query>
-            <![CDATA[
-            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
-            earliest=$time_range.earliest$ latest=$time_range.latest$ 
-            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | stats avg(execution_time) as avg_time by tag
-            | sort -avg_time
-            ]]>
-          </query>
-        </search>
-        <option name="charting.chart">column</option>
-        <option name="charting.series">multi</option>
-        <option name="charting.axisTitleY">Average Execution Time (ms)</option>
-        <drilldown>
-          <set token="selected_tag">$row.tag$</set>
-        </drilldown>
-      </chart>
-    </panel>
-  </row>
-  <row depends="$selected_tag$">
-    <panel>
-      <title>Execution Time Timeline for Selected Method</title>
-      <chart>
-        <search>
-          <query>
-            <![CDATA[
-            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
-            earliest=$time_range.earliest$ latest=$time_range.latest$ 
-            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | search tag="$selected_tag$"
-            | timechart span=1h avg(execution_time) as avg_time
-            ]]>
-          </query>
-        </search>
-        <option name="charting.chart">line</option>
-        <option name="charting.axisTitleY">Average Execution Time (ms)</option>
-      </chart>
-    </panel>
-  </row>
-  <row depends="$selected_tag$">
-    <panel>
-      <title>Execution Time Statistics for Selected Method</title>
-      <table>
-        <search>
-          <query>
-            <![CDATA[
-            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
-            earliest=$time_range.earliest$ latest=$time_range.latest$ 
-            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | search tag="$selected_tag$"
-            | stats avg(execution_time) as avg_time, min(execution_time) as min_time, max(execution_time) as max_time by tag
-            | eval avg_color=if(avg_time > 20000, "red", if(avg_time > 10000, "orange", "green"))
-            | eval min_color=if(min_time > 20000, "red", if(min_time > 10000, "orange", "green"))
-            | eval max_color=if(max_time > 20000, "red", if(max_time > 10000, "orange", "green"))
-            | table tag, avg_time, min_time, max_time, avg_color, min_color, max_color
-            ]]>
-          </query>
-        </search>
-        <option name="drilldown">none</option>
-        <format>
-          <field name="avg_time">
-            <eval> "<div style='color:" . avg_color . "'>" . avg_time . "</div>" </eval>
-          </field>
-          <field name="min_time">
-            <eval> "<div style='color:" . min_color . "'>" . min_time . "</div>" </eval>
-          </field>
-          <field name="max_time">
-            <eval> "<div style='color:" . max_color . "'>" . max_time . "</div>" </eval>
-          </field>
-        </format>
-      </table>
-    </panel>
-  </row>
-  <row depends="$selected_tag$">
-    <panel>
-      <title>Detailed Logs for Selected Method</title>
-      <table>
-        <search>
-          <query>
-            <![CDATA[
-            index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
-            earliest=$time_range.earliest$ latest=$time_range.latest$ 
-            | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-            | search tag="$selected_tag$"
-            | table _time execution_time tag message
-            ]]>
-          </query>
-        </search>
-        <earliest>$time_range.earliest$</earliest>
-        <latest>$time_range.latest$</latest>
-      </table>
-    </panel>
-  </row>
-</dashboard>
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.recipes.locks.InterProcessMutex;
+import org.apache.curator.utils.ZKPaths;
+import org.apache.zookeeper.data.Stat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+import java.util.List;
 
+@Service
+public class ZookeeperCleanupService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ZookeeperCleanupService.class);
 
+    @Autowired
+    private CuratorFramework curatorFramework;
 
+    @Scheduled(cron = "0 0 * * * *") // This cron expression runs the task every hour
+    public void cleanUpOldNodes() {
+        try {
+            String parentPath = "/lock/parent";
+            List<String> children = curatorFramework.getChildren().forPath(parentPath);
+            long currentTime = System.currentTimeMillis();
+            long thresholdTime = currentTime - (2 * 60 * 60 * 1000); // 2 hours
 
-
-<row depends="$selected_tag$">
-  <panel>
-    <title>Execution Time Statistics for Selected Method</title>
-    <table>
-      <search>
-        <query>
-          <![CDATA[
-          index=<your_index> sourcetype="foo.$sourcetype_filter$.bin"
-          earliest=$time_range.earliest$ latest=$time_range.latest$ 
-          | rex field=_raw "start\\[(?P<start>\\d+)\\] time\\[(?P<execution_time>\\d+)\\] tag\\[(?P<tag>[^\\]]+)\\] message\\[(?P<message>[^\\]]+)\\]"
-          | search tag="$selected_tag$"
-          | stats avg(execution_time) as avg_time, min(execution_time) as min_time, max(execution_time) as max_time by tag
-          | eval diff_avg_min=avg_time - min_time
-          | eval diff_max_avg=max_time - avg_time
-          | eval diff_max_min=max_time - min_time
-          | eval color_avg=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "<div style='color:red'>" . avg_time . "</div>", avg_time)
-          | eval color_min=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "<div style='color:red'>" . min_time . "</div>", min_time)
-          | eval color_max=if(diff_avg_min > 3000 OR diff_max_avg > 3000 OR diff_max_min > 3000, "<div style='color:red'>" . max_time . "</div>", max_time)
-          | table tag, color_avg, color_min, color_max
-          ]]>
-        </query>
-      </search>
-      <option name="drilldown">none</option>
-      <format>
-        <field name="color_avg">HTML</field>
-        <field name="color_min">HTML</field>
-        <field name="color_max">HTML</field>
-      </format>
-    </table>
-  </panel>
-</row>
-
-  </panel>
-</row>
-
-
-
-
-
-<row>
-    <panel>
-      <title>Total Time Spent by Trace ID</title>
-      <table>
-        <search>
-          <query>
-            <![CDATA[
-            (index=your_index sourcetype=hello) OR (index=your_index sourcetype=world) OR (index=your_index sourcetype=order) OR (index=your_index sourcetype=ball) earliest=$time_range.earliest$ latest=$time_range.latest$
-            | rex field=_raw "(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<trace_id>[^,]+),[^]]+] start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^]]+)\](?: message\[(?P<message>[^]]*)\])?"
-            | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
-            | stats earliest(_time) as first_time, latest(_time) as last_time by trace_id
-            | eval total_time_spent = last_time - first_time
-            | eval total_time_spent = round(total_time_spent, 0)
-            | table trace_id, first_time, last_time, total_time_spent
-            ]]>
-          </query>
-        </search>
-        <option name="drilldown">row</option>
-      </table>
-    </panel>
-  </row>
-
-<query>
-            <![CDATA[
-            index=your_index (sourcetype=hello OR sourcetype=world OR sourcetype=order OR sourcetype=ball) earliest=$time_range.earliest$ latest=$time_range.latest$
-            | rex field=_raw "(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<trace_id>[^,]+),[^]]+] start\[(?P<start>\d+)\] time\[(?P<execution_time>\d+)\] tag\[(?P<tag>[^]]+)\](?: message\[(?P<message>[^]]*)\])?"
-            | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
-            | stats earliest(_time) as first_time, latest(_time) as last_time by trace_id sourcetype
-            | eval time_spent = last_time - first_time
-            | eval time_spent = round(time_spent, 0)
-            | eval component = case(
-                sourcetype=="hello", "Component A",
-                sourcetype=="world", "Component B",
-                sourcetype=="order", "Component C",
-                sourcetype=="ball", "Component D",
-                1==1, sourcetype)  // Default case to keep original value if not matched
-            | table trace_id, component, first_time, last_time, time_spent
-            ]]>
-          </query>
-
-
-
-| rex field=_raw "^(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[[^\]]+\] [^\[]+\[(?P<trace_id>[^\s,]+), ?(?P<span_id>[^\s,]+)\]"
-            | eval _time=strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%3Q")
-            
-
-<dashboard>
-  <label>Trace ID Analysis Dashboard</label>
-  <description>Dashboard to analyze logs by trace ID and visualize first occurrences in each component.</description>
-
-  <!-- Date range picker -->
-  <row>
-    <panel>
-      <title>Select Time Range</title>
-      <input type="time" token="time_range">
-        <default>
-          <earliest>-24h@h</earliest>
-          <latest>now</latest>
-        </default>
-      </input>
-    </panel>
-  </row>
-
-  <!-- Dropdown for Trace IDs -->
-  <row>
-    <panel>
-      <title>Select Trace ID</title>
-      <input type="dropdown" token="selected_trace_id">
-        <label>Trace ID</label>
-        <dynamicOptions>true</dynamicOptions>
-        <search>
-          <query>
-            <![CDATA[
-            index=* (sourcetype=foo OR sourcetype=bar OR sourcetype=bin OR sourcetype=hello) earliest=$time_range.earliest$ latest=$time_range.latest$
-            | rex field=_raw "\[(?P<trace_id>[^\s,]+), ?(?P<span_id>[^\s,]+)\]"
-            | stats count by trace_id
-            | fields - count
-            ]]>
-          </query>
-        </search>
-      </input>
-    </panel>
-  </row>
-
-  <!-- Chart for First Occurrence Times -->
-  <row>
-    <panel>
-      <title>First Occurrence Times by Component</title>
-      <chart>
-        <search>
-          <query>
-            <![CDATA[
-            index=* (sourcetype=foo OR sourcetype=bar OR sourcetype=bin OR sourcetype=hello) earliest=$time_range.earliest$ latest=$time_range.latest$ trace_id=$selected_trace_id$
-            | rex field=_raw "(?P<time_stamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[.+?\] .+ \[(?P<trace_id>[^\s,]+), ?(?P<span_id>[^\s,]+)\]"
-            | stats earliest(time_stamp) as first_occurrence by sourcetype
-            | eval component=case(
-                sourcetype=="foo", "Component Foo",
-                sourcetype=="bar", "Component Bar",
-                sourcetype=="bin", "Component Bin",
-                sourcetype=="hello", "Component Hello",
-                true(), "Other"
-              )
-            | table component, first_occurrence
-            ]]>
-          </query>
-        </search>
-      </chart>
-    </panel>
-  </row>
-</dashboard>
-
-
+            for (String child : children) {
+                String childPath = ZKPaths.makePath(parentPath, child);
+                Stat stat = curatorFramework.checkExists().forPath(childPath);
+                if (stat != null && stat.getCtime() < thresholdTime) {
+                    try {
+                        InterProcessMutex lock = new InterProcessMutex(curatorFramework, childPath);
+                        if (lock.acquire(15, TimeUnit.SECONDS)) {
+                            try {
+                                logger.debug("Deleting old node: {}", childPath);
+                                curatorFramework.delete().forPath(childPath);
+                                logger.debug("Node deleted: {}", childPath);
+                            } finally {
+                                lock.release();
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error("Failed to delete node: " + childPath, e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error during cleanup of old nodes", e);
+        }
+    }
+}
